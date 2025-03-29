@@ -19,13 +19,13 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/business', require('./routes/businessRoutes'));
-app.use('/api/waste-requests', require('./routes/wasteRequestRoutes'));
-app.use('/api/waste-tips', require('./routes/wasteTipRoutes'));
-app.use('/api/expenses', require('./routes/expenseRoutes'));
-app.use('/api/collector', require('./routes/collectorRoutes'));
-app.use('/api/resident', require('./routes/residentRoutes'));
+app.use('/auth', require('./routes/auth'));
+app.use('/business', require('./routes/businessRoutes'));
+app.use('/waste-requests', require('./routes/wasteRequestRoutes'));
+app.use('/waste-tips', require('./routes/wasteTipRoutes'));
+app.use('/expenses', require('./routes/expenseRoutes'));
+app.use('/collector', require('./routes/collectorRoutes'));
+app.use('/resident', require('./routes/residentRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
