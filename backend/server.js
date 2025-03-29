@@ -13,7 +13,7 @@ const io = initializeSocket(server);
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://waste-management-system-project.vercel.app',
+  origin: process.env.FRONTEND_URL || 'https://waste-management-system-project.vercel.app/',
   credentials: true
 }));
 app.use(express.json());
