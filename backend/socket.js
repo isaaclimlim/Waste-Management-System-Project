@@ -7,7 +7,7 @@ let io;
 function initializeSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: process.env.FRONTEND_URL || 'https://waste-management-system-project.vercel.app/',
       credentials: true
     }
   });
