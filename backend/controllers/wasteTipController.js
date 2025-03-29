@@ -1,4 +1,4 @@
-const WasteTip = require('../models/WasteTip');
+const WasteTip = require('../models/wasteTip');
 
 // Get all waste tips grouped by category
 const getWasteTips = async (req, res) => {
@@ -29,28 +29,14 @@ const getWasteTips = async (req, res) => {
 // Create a new waste tip (admin only)
 const createWasteTip = async (req, res) => {
   try {
-    const { category, content } = req.body;
-
-    // Validate input
-    if (!category || !content) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category and content are required'
-      });
-    }
-
-    const tip = await WasteTip.create({ category, content });
-
+    const newWasteTip = await WasteTip.create(req.body);
     res.status(201).json({
       success: true,
-      message: 'Waste tip created successfully',
-      data: tip
+      data: newWasteTip
     });
   } catch (error) {
-    console.error('Error in createWasteTip:', error);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message: 'Internal server error',
       error: error.message
     });
   }

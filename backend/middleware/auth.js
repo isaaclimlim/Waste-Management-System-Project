@@ -1,33 +1,97 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const Collector = require('../models/Collector');
 
-const auth = async (req, res, next) => {
+// Verify JWT token
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access token is required'
+    });
+  }
+
   try {
-    // Get token from header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log('Received token:', token ? 'Token exists' : 'No token');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
     
-    if (!token) {
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'No authentication token, access denied'
+        message: 'User not found'
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    console.log('Decoded token:', decoded);
-    
-    // Add user info to request
-    req.user = decoded;
-    console.log('User info added to request:', req.user);
+    req.user = user;
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
-      message: 'Token is invalid or expired'
+      message: 'Invalid or expired token'
     });
   }
 };
 
-module.exports = { auth }; 
+// Verify collector role
+const authenticateCollector = async (req, res, next) => {
+  try {
+    // Check if user is a collector
+    if (!req.user || req.user.role !== 'collector') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Collector role required.'
+      });
+    }
+
+    // Check if collector profile exists
+    const collector = await Collector.findOne({ userId: req.user._id });
+    
+    if (!collector) {
+      return res.status(404).json({
+        success: false,
+        message: 'Collector profile not found'
+      });
+    }
+
+    // Add collector profile to request
+    req.collector = collector;
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Error authenticating collector',
+      error: error.message
+    });
+  }
+};
+
+// Verify business role
+const authenticateBusiness = async (req, res, next) => {
+  try {
+    // Check if user is a business
+    if (!req.user || req.user.role !== 'business') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Business role required.'
+      });
+    }
+
+    // Add business user to request
+    req.business = req.user;
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Error authenticating business',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  verifyToken,
+  authenticateCollector,
+  authenticateBusiness
+}; 

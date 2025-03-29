@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Trash2, MapPin, CheckCircle2 } from 'lucide-react';
-import { api } from '../lib/axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useWasteRequest } from '../contexts/WasteRequestContext';
+import { useWasteRequest } from '../hooks/useWasteRequest';
 
 export function RequestWasteCollection() {
   const { user, token } = useAuth();
-  const { markRequestSubmitted } = useWasteRequest();
+  const { refresh } = useWasteRequest();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     date: '',
@@ -34,11 +34,25 @@ export function RequestWasteCollection() {
     { value: 'recyclable', label: 'Recyclable' }
   ];
 
+  const timeSlots = [
+    { value: 'morning', label: 'Morning (8:00 AM - 12:00 PM)' },
+    { value: 'afternoon', label: 'Afternoon (1:00 PM - 5:00 PM)' },
+    { value: 'evening', label: 'Evening (6:00 PM - 9:00 PM)' }
+  ];
+
   const validateForm = () => {
     const newErrors = {};
     
     if (!formData.date) {
       newErrors.date = 'Date is required';
+    } else {
+      const selectedDate = new Date(formData.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        newErrors.date = 'Date cannot be in the past';
+      }
     }
 
     if (!formData.time) {
@@ -63,19 +77,40 @@ export function RequestWasteCollection() {
 
     setIsSubmitting(true);
     try {
-      const response = await api.post('/waste-requests', formData);
+      // Format the date to ISO string
+      const formattedDate = new Date(formData.date).toISOString();
+      
+      const requestData = {
+        date: formattedDate,
+        time: formData.time,
+        wasteType: formData.wasteType,
+        address: formData.address.trim()
+      };
+
+      console.log('Submitting request data:', requestData);
+
+      const response = await api.post('/waste-requests', requestData);
       
       if (response.data.success) {
         setSubmittedRequest(response.data.data);
-        markRequestSubmitted();
+        refresh(); // Refresh the requests list
         toast.success('Waste collection request submitted successfully!');
       } else {
+        console.error('Request failed:', response.data);
         toast.error(response.data.message || 'Failed to submit request');
       }
     } catch (error) {
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+
       if (error.response?.status === 401) {
         toast.error('Please login to submit a waste collection request');
         navigate('/login');
+      } else if (error.response?.status === 400) {
+        toast.error(error.response.data.message || 'Invalid request data');
       } else {
         toast.error(error.response?.data?.message || 'An error occurred while submitting the request');
       }
@@ -100,69 +135,43 @@ export function RequestWasteCollection() {
   };
 
   const handleNewRequest = () => {
-    navigate('/resident');
+    setFormData({
+      date: '',
+      time: '',
+      wasteType: '',
+      address: ''
+    });
+    setSubmittedRequest(null);
+    setErrors({});
   };
-
-  if (!token) {
-    return null;
-  }
 
   if (submittedRequest) {
     return (
-      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-sm">
-        <div className="text-center mb-8">
-          <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Request Submitted Successfully!</h2>
-          <p className="text-gray-600">Your waste collection request has been received and is pending collector assignment.</p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Details</h3>
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <Calendar className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-gray-700">Date: {new Date(submittedRequest.date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center">
-              <Clock className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-gray-700">Time: {submittedRequest.time}</span>
-            </div>
-            <div className="flex items-center">
-              <Trash2 className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-gray-700">Waste Type: {submittedRequest.wasteType}</span>
-            </div>
-            <div className="flex items-center">
-              <MapPin className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-gray-700">Address: {submittedRequest.address}</span>
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                Status: Pending
-              </span>
-            </div>
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="text-center">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">Request Submitted Successfully!</h2>
+          <p className="mt-2 text-gray-600">Your waste collection request has been submitted.</p>
+          <div className="mt-6">
+            <button
+              onClick={handleNewRequest}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Submit Another Request
+            </button>
           </div>
-        </div>
-
-        <div className="flex justify-center">
-          <button
-            onClick={handleNewRequest}
-            className="bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-200"
-          >
-            Okay
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-sm">
+    <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Request Waste Collection</h2>
-      
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Date Field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700">
             <div className="flex items-center">
               <Calendar className="h-5 w-5 text-green-600 mr-2" />
               Collection Date
@@ -173,10 +182,10 @@ export function RequestWasteCollection() {
             name="date"
             value={formData.date}
             onChange={handleChange}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+            min={new Date().toISOString().split('T')[0]}
+            className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
               errors.date ? 'border-red-500' : 'border-gray-300'
             }`}
-            min={new Date().toISOString().split('T')[0]}
           />
           {errors.date && (
             <p className="mt-1 text-sm text-red-500">{errors.date}</p>
@@ -185,21 +194,27 @@ export function RequestWasteCollection() {
 
         {/* Time Field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700">
             <div className="flex items-center">
               <Clock className="h-5 w-5 text-green-600 mr-2" />
               Preferred Time
             </div>
           </label>
-          <input
-            type="time"
+          <select
             name="time"
             value={formData.time}
             onChange={handleChange}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+            className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
               errors.time ? 'border-red-500' : 'border-gray-300'
             }`}
-          />
+          >
+            <option value="">Select time</option>
+            {timeSlots.map(slot => (
+              <option key={slot.value} value={slot.value}>
+                {slot.label}
+              </option>
+            ))}
+          </select>
           {errors.time && (
             <p className="mt-1 text-sm text-red-500">{errors.time}</p>
           )}
@@ -207,7 +222,7 @@ export function RequestWasteCollection() {
 
         {/* Waste Type Field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700">
             <div className="flex items-center">
               <Trash2 className="h-5 w-5 text-green-600 mr-2" />
               Waste Type
@@ -217,7 +232,7 @@ export function RequestWasteCollection() {
             name="wasteType"
             value={formData.wasteType}
             onChange={handleChange}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+            className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
               errors.wasteType ? 'border-red-500' : 'border-gray-300'
             }`}
           >
@@ -235,7 +250,7 @@ export function RequestWasteCollection() {
 
         {/* Address Field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700">
             <div className="flex items-center">
               <MapPin className="h-5 w-5 text-green-600 mr-2" />
               Collection Address
@@ -247,7 +262,7 @@ export function RequestWasteCollection() {
             onChange={handleChange}
             rows="3"
             placeholder="Enter your complete address"
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+            className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
               errors.address ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -256,14 +271,15 @@ export function RequestWasteCollection() {
           )}
         </div>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Request'}
-        </button>
+        <div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Request'}
+          </button>
+        </div>
       </form>
     </div>
   );

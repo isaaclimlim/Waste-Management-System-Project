@@ -1,12 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { auth, isAdmin } = require('../middleware/auth');
-const { getWasteTips, createWasteTip } = require('../controllers/wasteTipController');
+const { authenticateBusiness } = require('../middleware/auth');
+const {
+  getWasteTips,
+  createWasteTip
+} = require('../controllers/wasteTipController');
 
-// Get all waste tips (public)
+// Get all waste tips (public route)
 router.get('/', getWasteTips);
 
-// Create a new waste tip (admin only)
-router.post('/', auth, isAdmin, createWasteTip);
+// Create a new waste tip (protected route, business only)
+router.post('/', authenticateBusiness, createWasteTip);
 
 module.exports = router; 

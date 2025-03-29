@@ -23,7 +23,9 @@ export function ResidentDashboard() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 border-b">
-            <span className="text-xl font-bold text-green-600">SmartTrash</span>
+            <Link to="/" className="text-xl font-bold text-green-600 hover:text-green-700 transition-colors">
+              SmartTrash
+            </Link>
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
