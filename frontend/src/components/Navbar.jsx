@@ -14,7 +14,7 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-2xl font-bold text-primary-600">
+              <Link to="/" className="text-2xl font-bold text-green-600 hover:text-green-700 transition-colors">
                 SmartTrash
               </Link>
             </div>
@@ -23,7 +23,7 @@ const Navbar = () => {
                 to="/"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/')
-                    ? 'border-primary-500 text-gray-900'
+                    ? 'border-green-500 text-gray-900'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
@@ -34,7 +34,7 @@ const Navbar = () => {
                 to="/settings"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/settings')
-                    ? 'border-primary-500 text-gray-900'
+                    ? 'border-green-500 text-gray-900'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >

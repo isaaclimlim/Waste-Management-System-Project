@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useWasteRequest } from '../contexts/WasteRequestContext';
+import { useWasteRequest } from '../hooks/useWasteRequest';
 import { Clock, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
 
 export function RequestsList() {
-  const { requests, isLoading } = useWasteRequest();
+  const { requests, loading, error } = useWasteRequest();
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const statusConfig = {
@@ -18,7 +19,7 @@ export function RequestsList() {
     ? requests
     : requests.filter(request => request.status === selectedStatus);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="animate-pulse space-y-4">
         {[1, 2, 3].map(i => (
@@ -29,6 +30,10 @@ export function RequestsList() {
         ))}
       </div>
     );
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
   }
 
   return (
@@ -69,9 +74,8 @@ export function RequestsList() {
                     </h3>
                     <p className="text-gray-600">Address: {request.address}</p>
                     <p className="text-gray-600">
-                      Date: {new Date(request.date).toLocaleDateString()}
+                      Date: {format(new Date(request.date), 'PPP')} at {request.time}
                     </p>
-                    <p className="text-gray-600">Time: {request.time}</p>
                   </div>
                   <div className={`flex items-center ${statusConfig[request.status]?.bgColor} px-3 py-1 rounded-full`}>
                     {StatusIcon && <StatusIcon className={`h-4 w-4 mr-1.5 ${statusConfig[request.status]?.color}`} />}

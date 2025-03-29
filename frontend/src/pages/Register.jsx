@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { User, Lock, Mail, Phone, MapPin } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Lock, Mail, Phone, UserCircle } from 'lucide-react';
+import { auth } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export function RegisterPage() {
+  const navigate = useNavigate();
+  const { setAuth } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    address: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: ''
   });
 
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const validateForm = () => {
     const newErrors = {};
@@ -31,8 +37,8 @@ export function RegisterPage() {
       newErrors.phone = 'Phone number is required';
     }
 
-    if (!formData.address.trim()) {
-      newErrors.address = 'Address is required';
+    if (!formData.role) {
+      newErrors.role = 'Account type is required';
     }
 
     if (!formData.password) {
@@ -49,11 +55,37 @@ export function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Handle form submission here
-      console.log('Form submitted:', formData);
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setSubmitError('');
+
+    try {
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...registrationData } = formData;
+      
+      console.log('Sending registration data:', registrationData);
+      
+      // Register the user
+      const response = await auth.register(registrationData);
+      
+      // Set auth context with user data and token
+      setAuth(response.user, response.token);
+      
+      // Show success message and redirect to login
+      navigate('/login', { 
+        state: { 
+          message: 'Registration successful! Please login to continue.',
+          email: formData.email 
+        }
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      setSubmitError(error.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,6 +120,12 @@ export function RegisterPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {submitError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {submitError}
+            </div>
+          )}
+          
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Name Field */}
             <div>
@@ -155,25 +193,29 @@ export function RegisterPage() {
               )}
             </div>
 
-            {/* Address Field */}
+            {/* Account Type Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 <div className="flex items-center">
-                  <MapPin className="h-5 w-5 text-green-600 mr-2" />
-                  Address
+                  <UserCircle className="h-5 w-5 text-green-600 mr-2" />
+                  Account Type
                 </div>
               </label>
-              <textarea
-                name="address"
-                value={formData.address}
+              <select
+                name="role"
+                value={formData.role}
                 onChange={handleChange}
-                rows="2"
                 className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
-                  errors.address ? 'border-red-500' : 'border-gray-300'
+                  errors.role ? 'border-red-500' : 'border-gray-300'
                 }`}
-              />
-              {errors.address && (
-                <p className="mt-1 text-sm text-red-500">{errors.address}</p>
+              >
+                <option value="">Select account type</option>
+                <option value="resident">Resident</option>
+                <option value="business">Business</option>
+                <option value="collector">Waste Collector</option>
+              </select>
+              {errors.role && (
+                <p className="mt-1 text-sm text-red-500">{errors.role}</p>
               )}
             </div>
 
@@ -224,9 +266,10 @@ export function RegisterPage() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                disabled={isLoading}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                Register
+                {isLoading ? 'Creating account...' : 'Register'}
               </button>
             </div>
           </form>

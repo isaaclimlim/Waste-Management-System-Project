@@ -1,28 +1,57 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
+import { auth } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/axios';
-import toast from 'react-hot-toast';
 
 export function LoginPage() {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
-  const { setAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { setAuth } = useAuth();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
 
-  const onSubmit = async (data) => {
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Check for registration success message and pre-fill email
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      setFormData(prev => ({
+        ...prev,
+        email: location.state.email || ''
+      }));
+      // Clear the state after using it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.email || !formData.password) {
+      setErrors({
+        email: !formData.email ? 'Email is required' : '',
+        password: !formData.password ? 'Password is required' : ''
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setSubmitError('');
+
     try {
-      const response = await api.post('/auth/login', data);
-      setAuth(response.data.user, response.data.token);
+      const response = await auth.login(formData);
       
-      // Get the page user was trying to access, or use role-based default
-      const from = location.state?.from?.pathname;
-      if (from) {
-        navigate(from, { replace: true });
-      } else {
-        // Navigate based on user role if no previous page
+      // Set auth context with user data and token
+      if (response.data.success) {
+        setAuth(response.data.user, response.data.token);
+
+        // Redirect based on user role
         switch (response.data.user.role) {
           case 'resident':
             navigate('/resident');
@@ -34,22 +63,36 @@ export function LoginPage() {
             navigate('/collector');
             break;
           default:
-            navigate('/resident');
+            navigate('/');
         }
+      } else {
+        setSubmitError('Login failed. Please try again.');
       }
-      
-      toast.success('Welcome back!');
     } catch (error) {
-      toast.error('Invalid email or password');
+      setSubmitError(error.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <Link to="/" className="flex justify-center">
-          <LogIn className="h-12 w-12 text-green-600" />
-        </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Sign in to your account
         </h2>
@@ -63,52 +106,70 @@ export function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+              {successMessage}
+            </div>
+          )}
+
+          {submitError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+              {submitError}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+              <label className="block text-sm font-medium text-gray-700">
+                <div className="flex items-center">
+                  <Mail className="h-5 w-5 text-green-600 mr-2" />
+                  Email address
+                </div>
               </label>
-              <div className="mt-1">
-                <input
-                  {...register('email', {
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Invalid email address'
-                    }
-                  })}
-                  type="email"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                )}
-              </div>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
 
+            {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+              <label className="block text-sm font-medium text-gray-700">
+                <div className="flex items-center">
+                  <Lock className="h-5 w-5 text-green-600 mr-2" />
+                  Password
+                </div>
               </label>
-              <div className="mt-1">
-                <input
-                  {...register('password', { required: 'Password is required' })}
-                  type="password"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                />
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-                )}
-              </div>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  errors.password ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+              )}
             </div>
 
             <div>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                disabled={isLoading}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
+                {isLoading ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
           </form>

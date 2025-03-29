@@ -1,179 +1,136 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-import { api } from '../lib/axios';
+import React, { createContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { business } from '../services/api';
+import { socketService } from '../services/socket';
 
 const WasteRequestContext = createContext(null);
 
 export function WasteRequestProvider({ children }) {
   const { token, user } = useAuth();
-  const [requestSubmitted, setRequestSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [requests, setRequests] = useState([]);
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
-    accepted: 0,
-    rejected: 0,
+    in_progress: 0,
     completed: 0,
     cancelled: 0
   });
-  const [requests, setRequests] = useState([]);
-
-  const fetchStatusCounts = async () => {
-    if (isLoading || !token) {
-      console.log('Skipping fetchStatusCounts:', { isLoading, hasToken: !!token });
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log('Fetching status counts with token:', token ? 'Token exists' : 'No token');
-      const response = await api.get('/waste-requests/status-counts');
-      console.log('Status counts response:', response.data);
-      
-      if (response.data.success) {
-        setStatusCounts(response.data.data);
-      } else {
-        console.error('Failed to fetch status counts:', response.data);
-        setError(response.data.message || 'Failed to fetch status counts');
-      }
-    } catch (error) {
-      console.error('Error fetching status counts:', error);
-      console.error('Error details:', error.response?.data);
-      setError(error.response?.data?.message || 'Error fetching status counts');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchRequests = async () => {
-    if (!token) {
-      console.log('Skipping fetchRequests: No token available');
-      return;
-    }
-    
     try {
-      setIsLoading(true);
-      setError(null);
-      console.log('Fetching requests with token:', token ? 'Token exists' : 'No token');
-      const response = await api.get('/waste-requests/resident');
-      console.log('Requests response:', response.data);
+      setLoading(true);
+      const response = await business.getRequests();
+      console.log('API Response:', response); // Debug log
       
-      if (response.data.success) {
+      if (response.data?.success) {
         setRequests(response.data.data);
       } else {
-        console.error('Failed to fetch requests:', response.data);
-        setError(response.data.message || 'Failed to fetch requests');
+        setError(response.data?.message || 'Failed to fetch requests');
       }
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-      console.error('Error details:', error.response?.data);
-      setError(error.response?.data?.message || 'Error fetching requests');
+    } catch (err) {
+      console.error('Error fetching requests:', err);
+      setError(err.response?.data?.message || 'Error fetching requests');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Initialize WebSocket connection
-  useEffect(() => {
-    if (!user?._id || !token) {
-      console.log('Skipping WebSocket connection:', { 
-        hasUserId: !!user?._id, 
-        hasToken: !!token,
-        userId: user?._id,
-        userIdType: typeof user?._id
-      });
-      return;
-    }
-
-    console.log('Initializing WebSocket connection for user:', {
-      userId: user._id,
-      userIdType: typeof user._id
-    });
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+  const fetchStatusCounts = async () => {
+    if (!token || user?.role !== 'business') return;
     
-    // Join user's room
-    socket.emit('join', user._id);
+    try {
+      const response = await business.getStatusCounts();
+      
+      if (response.data?.success) {
+        setStatusCounts(response.data.data);
+      } else {
+        setError(response.data?.message || 'Failed to fetch status counts');
+      }
+    } catch (err) {
+      console.error('Error fetching status counts:', err);
+      setError(err.response?.data?.message || 'Error fetching status counts');
+    }
+  };
 
-    // Listen for new requests
-    socket.on('newRequest', (newRequest) => {
-      console.log('Received new request:', newRequest);
-      setRequests(prev => [newRequest, ...prev]);
-      fetchStatusCounts();
-    });
-
-    // Listen for status updates
-    socket.on('requestStatusUpdate', ({ requestId, status, updatedAt }) => {
-      console.log('Received status update:', { requestId, status, updatedAt });
-      setRequests(prev => 
-        prev.map(request => 
-          request._id === requestId 
-            ? { ...request, status, updatedAt }
-            : request
-        )
-      );
-      fetchStatusCounts();
-    });
-
-    socket.on('connect', () => {
-      console.log('WebSocket connected');
-    });
-
-    socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-    });
-
-    return () => {
-      console.log('Disconnecting WebSocket');
-      socket.disconnect();
-    };
-  }, [user?._id, token]);
-
+  // Initial data fetch
   useEffect(() => {
-    if (token) {
-      console.log('Token available, fetching initial data', {
-        userId: user?._id,
-        userIdType: typeof user?._id
-      });
+    if (token && user?.role === 'business') {
       fetchRequests();
       fetchStatusCounts();
     }
-  }, [token]);
+  }, [token, user]);
 
-  const markRequestSubmitted = () => {
-    setRequestSubmitted(true);
-    fetchStatusCounts();
-    fetchRequests();
-  };
+  // Set up WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!token || user?.role !== 'business') return;
 
-  const resetRequestSubmitted = () => {
-    setRequestSubmitted(false);
+    try {
+      const socket = socketService.connect();
+
+      // Subscribe to real-time updates
+      socketService.subscribeToRequests((data) => {
+        setRequests(prev => [...prev, data]);
+      });
+
+      socketService.subscribeToRequestUpdates((data) => {
+        setRequests(prev => 
+          prev.map(request => 
+            request._id === data._id ? data : request
+          )
+        );
+      });
+
+      socketService.subscribeToStatusCounts((data) => {
+        setStatusCounts(data);
+      });
+
+      // Periodic refresh every 30 seconds
+      const refreshInterval = setInterval(() => {
+        fetchRequests();
+        fetchStatusCounts();
+      }, 30000);
+
+      // Cleanup
+      return () => {
+        socketService.unsubscribeFromRequests();
+        socketService.unsubscribeFromRequestUpdates();
+        socketService.unsubscribeFromStatusCounts();
+        socketService.disconnect();
+        clearInterval(refreshInterval);
+      };
+    } catch (err) {
+      console.error('Error setting up socket connection:', err);
+      setError('Failed to establish real-time connection');
+    }
+  }, [token, user]);
+
+  const value = {
+    requests,
+    statusCounts,
+    loading,
+    error,
+    refresh: () => {
+      fetchRequests();
+      fetchStatusCounts();
+    }
   };
 
   return (
-    <WasteRequestContext.Provider 
-      value={{ 
-        requestSubmitted, 
-        markRequestSubmitted, 
-        resetRequestSubmitted,
-        statusCounts,
-        requests,
-        isLoading,
-        error,
-        fetchStatusCounts,
-        fetchRequests
-      }}
-    >
+    <WasteRequestContext.Provider value={value}>
       {children}
     </WasteRequestContext.Provider>
   );
 }
 
+// Custom hook to use the waste request context
 export function useWasteRequest() {
-  const context = useContext(WasteRequestContext);
+  const context = React.useContext(WasteRequestContext);
   if (!context) {
     throw new Error('useWasteRequest must be used within a WasteRequestProvider');
   }
   return context;
-} 
+}
+
+// Export the context for testing purposes
+export { WasteRequestContext }; 

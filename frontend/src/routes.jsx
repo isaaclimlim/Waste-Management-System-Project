@@ -11,6 +11,10 @@ import { RequestPickup } from './pages/RequestPickup';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ResidentHome } from './pages/ResidentHome';
 import { WasteTips } from './components/WasteTips';
+import { CollectorProfile } from './pages/collector/CollectorProfile';
+import { CollectorSettings } from './pages/collector/CollectorSettings';
+import { CollectorAnalytics } from './pages/collector/CollectorAnalytics';
+import { CollectorHistory } from './pages/collector/CollectorHistory';
 
 export function AppRoutes() {
   return (
@@ -64,8 +68,10 @@ export function AppRoutes() {
       >
         <Route index element={<div>Collector Dashboard</div>} />
         <Route path="routes" element={<div>Routes Page</div>} />
-        <Route path="history" element={<div>History Page</div>} />
-        <Route path="settings" element={<div>Settings Page</div>} />
+        <Route path="history" element={<CollectorHistory />} />
+        <Route path="analytics" element={<CollectorAnalytics />} />
+        <Route path="profile" element={<CollectorProfile />} />
+        <Route path="settings" element={<CollectorSettings />} />
       </Route>
     </Routes>
   );

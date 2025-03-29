@@ -1,23 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middleware/auth');
-const { 
-  createRequest, 
-  getResidentRequests, 
-  updateRequestStatus, 
-  getStatusCounts 
+const { authenticateBusiness } = require('../middleware/auth');
+const {
+  createRequest,
+  getRequests,
+  getRequestById,
+  updateRequestStatus,
+  getStatusCounts
 } = require('../controllers/wasteRequestController');
 
-// Create a new waste collection request (resident only)
-router.post('/', auth, createRequest);
+// Apply authentication middleware to all routes
+router.use(authenticateBusiness);
 
-// Get all requests for the logged-in resident
-router.get('/resident', auth, getResidentRequests);
+// Create a new waste collection request
+router.post('/', createRequest);
 
-// Update request status (collector/admin only)
-router.patch('/:requestId/status', auth, updateRequestStatus);
+// Get all requests for the business
+router.get('/', getRequests);
 
-// Get status counts for the logged-in resident
-router.get('/status-counts', auth, getStatusCounts);
+// Get status counts for the business
+router.get('/status-counts', getStatusCounts);
+
+// Get a specific request by ID
+router.get('/:id', getRequestById);
+
+// Update request status
+router.patch('/:id/status', updateRequestStatus);
 
 module.exports = router; 
