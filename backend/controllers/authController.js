@@ -2,7 +2,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -10,7 +10,7 @@ const generateToken = (user) => {
       id: user._id.toString(),
       role: user.role 
     }, 
-    process.env.JWT_SECRET || 'your-secret-key',
+    process.env.JWT_SECRET;
     {
       expiresIn: '30d',
     }
