@@ -70,8 +70,8 @@ A comprehensive waste management system that connects residents, businesses, and
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/waste-management-system.git
-cd waste-management-system
+git clone https://github.com/isaaclimlim/Waste-Management-System-Project.git
+cd Waste-Management-System
 ```
 
 2. Install backend dependencies
@@ -246,7 +246,8 @@ waste-management-system/
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 👥 Authors
-- Your Name - Initial work
+-NAME: Isaac Erukudi Limlim
+-EMAIL: isaacerukudi@gmail.com
 
 ## 🙏 Acknowledgments
 - MongoDB Atlas for database hosting
