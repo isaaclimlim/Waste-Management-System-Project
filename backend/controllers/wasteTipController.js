@@ -1,4 +1,4 @@
-const WasteTip = require('../models/wasteTip.js');
+const WasteTip = require('../models/WasteTip');
 
 // Get all waste tips grouped by category
 const getWasteTips = async (req, res) => {
