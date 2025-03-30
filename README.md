@@ -2,6 +2,9 @@
 
 A comprehensive waste management system that connects residents, businesses, and waste collectors to streamline waste collection and disposal processes.
 
+LIVE WEBSITE LINK
+https://waste-management-system-project.vercel.app/
+
 ## 🌟 Features
 
 ### For Residents
